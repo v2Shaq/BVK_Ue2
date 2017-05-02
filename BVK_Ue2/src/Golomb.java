@@ -125,6 +125,7 @@ public class Golomb extends JPanel {
 
 		loadSrcFile(input);
 		grayScale(srcView);
+		preProcessedView.setPixels(srcView.getPixels().clone());
 	}
 
 	private void dcpm() {
@@ -138,9 +139,14 @@ public class Golomb extends JPanel {
 			int prevPix = (srcPixels[i - 1] >> 16) & 0xFF;
 			int error = currentPix - prevPix;
 			int value = error + init;
+			//TODO fehler in einzelnen array merken, angeglichenes array zur darstellung -> 2 arrays
+			if (value > 255)
+				value = 255;
+			else if (value < 0)
+				value = 0;
 
 			processedPixels[i] = (0xFF << 24) | (value << 16) | (value << 8) | value;
-		}	
+		}
 
 		this.preProcessedView.setPixels(processedPixels);
 	}
