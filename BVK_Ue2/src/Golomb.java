@@ -22,7 +22,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class Golomb extends JPanel {
 
-	private static final String name = "<My Name>"; // TODO: insert your name(s)
+	private static final String name = "Viet Tu Hoang";
 
 	private static final long serialVersionUID = 1L;
 	private static final int borderWidth = 5;
@@ -35,9 +35,14 @@ public class Golomb extends JPanel {
 	private JLabel sliderLabel;
 	private JSlider slider;
 
+	private JLabel origEntropyLabel;
+	private JLabel preProcessedEntropyLabel;
+
 	private ImageView srcView; // source image view
 	private ImageView preProcessedView; // reconstructed image view
 	private ImageView golombView;
+
+	private int[] preProcessedError;
 
 	private enum FileType {
 		NORMAL, GOL
@@ -120,26 +125,46 @@ public class Golomb extends JPanel {
 		images.add(preProcessedView);
 		images.add(golombView);
 
+		JPanel status = new JPanel(new GridBagLayout());
+		origEntropyLabel = new JLabel(" ");
+		preProcessedEntropyLabel = new JLabel(" ");
+		status.add(origEntropyLabel, c);
+		status.add(preProcessedEntropyLabel, c);
+
 		add(controls, BorderLayout.NORTH);
 		add(images, BorderLayout.CENTER);
+		add(status, BorderLayout.SOUTH);
 
 		loadSrcFile(input);
 		grayScale(srcView);
 		preProcessedView.setPixels(srcView.getPixels().clone());
+		entropyForAllImageViews();
+	}
+
+	private void entropyForAllImageViews() {
+		origEntropyLabel.setText("Entropy: " + entropy(srcView.getPixels()));
+		setPreprocessedLabel();
 	}
 
 	private void dcpm() {
 		int[] srcPixels = srcView.getPixels();
 		int[] processedPixels = new int[srcPixels.length];
-
+		preProcessedError = new int[srcPixels.length];
 		int init = 128;
-		processedPixels[0] = srcPixels[0] - init;
+		processedPixels[0] = preProcessedError[0] = srcPixels[0] - init;
+
+		if (processedPixels[0] > 255)
+			processedPixels[0] = 255;
+		else if (processedPixels[0] < 0)
+			processedPixels[0] = 0;
+
 		for (int i = 1; i < processedPixels.length; i++) {
 			int currentPix = (srcPixels[i] >> 16) & 0xFF;
 			int prevPix = (srcPixels[i - 1] >> 16) & 0xFF;
 			int error = currentPix - prevPix;
+			preProcessedError[i] = error;
 			int value = error + init;
-			//TODO fehler in einzelnen array merken, angeglichenes array zur darstellung -> 2 arrays
+
 			if (value > 255)
 				value = 255;
 			else if (value < 0)
@@ -149,6 +174,40 @@ public class Golomb extends JPanel {
 		}
 
 		this.preProcessedView.setPixels(processedPixels);
+		setPreprocessedLabel();
+
+	}
+
+	private void setPreprocessedLabel() {
+		preProcessedEntropyLabel.setText("Entropy: " + entropy(preProcessedView.getPixels()));
+
+	}
+
+	private double entropy(int[] pixels) {
+		int count = 0;
+		int[] histogram = new int[256];
+		for (int i : pixels) {
+			histogram[i & 0xFF]++;
+		}
+		for (int i = 0; i < histogram.length; i++) {
+			count += histogram[i];
+		}
+		if (count == 0) {
+			count = 1;
+		}
+		double entropy = 0.0;
+		// int meanSquaredError = 0;
+		for (int i = 0; i < histogram.length; i++) {
+			if (histogram[i] != 0) {
+				double propability = (double) histogram[i] / count;
+				// meanSquaredError = meanSquaredError + (histogram[i] * ((i) *
+				// (i)));
+				entropy -= propability * (Math.log(propability) / Math.log(2));
+			}
+		}
+		System.out.println();
+		return entropy;
+
 	}
 
 	private void grayScale(ImageView image) {
