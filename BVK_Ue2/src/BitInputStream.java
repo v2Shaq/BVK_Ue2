@@ -15,13 +15,14 @@ public class BitInputStream {
 			for (int i = index; i < bitNumber; i += 8) {
 				long byteRead = inputStream.read();
 				// System.out.println(Long.toBinaryString(byteRead));
-				buffer = buffer | (byteRead << 64 - index - bitNumber);
+				buffer = buffer | (byteRead << 64 - index - 8);
 				// System.out.println(Long.toBinaryString(buffer));
 				index += 8;
 			}
 		}
 		// System.out.println(Long.toBinaryString(buffer));
-		int value = (int) (buffer >> (64 - bitNumber));
+		int value = (int) (buffer >>> (64 - bitNumber));
+//		System.out.println(Integer.toBinaryString(value));
 		// Integer.toBinaryString(value);
 		buffer = buffer << bitNumber;
 		// System.out.println(Long.toBinaryString(buffer));

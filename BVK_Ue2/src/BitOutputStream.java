@@ -17,24 +17,25 @@ public class BitOutputStream {
 			throw new IllegalArgumentException("Zahl zu groﬂ");
 		}
 
-		long valueInLong = (int) value;
-//		System.out.println(Long.toBinaryString(valueInLong));
+		long valueInLong = value;
+		// System.out.println(Long.toBinaryString(valueInLong));
 		buffer = buffer | valueInLong << 64 - index - bitNumber;
-//		System.out.println(Long.toBinaryString(buffer));
+		// System.out.println(Long.toBinaryString(buffer));
 		index += bitNumber;
 
 		while (index >= 8) {
-			int toWrite = (int) (buffer >> 56);
-//			System.out.println("TOWRITE"+Integer.toBinaryString(toWrite));
+			int toWrite = (int) (buffer >>> 56);
+//			System.out.println("TOWRITE" + Integer.toBinaryString(toWrite));
 			outputStream.write(toWrite);
 			index -= 8;
+			buffer = buffer << 8;
 		}
 	}
 
 	public void close() throws IOException {
-		int toWrite = (int) (buffer >> 56);
-//		System.out.println(Long.toBinaryString(buffer));
-//		System.out.println(Integer.toBinaryString(toWrite));
+		int toWrite = (int) (buffer >>> 56);
+		// System.out.println(Long.toBinaryString(buffer));
+		// System.out.println(Integer.toBinaryString(toWrite));
 		outputStream.write(toWrite);
 		outputStream.close();
 	}

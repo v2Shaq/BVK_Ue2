@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.NumberFormat;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -179,7 +180,9 @@ public class Golomb extends JPanel {
 	}
 
 	private void setPreprocessedLabel() {
-		preProcessedEntropyLabel.setText("Entropy: " + entropy(preProcessedView.getPixels()));
+		NumberFormat.getInstance().setMaximumFractionDigits(3);
+		preProcessedEntropyLabel
+				.setText("Entropy: " + NumberFormat.getInstance().format(entropy(preProcessedView.getPixels())));
 
 	}
 
@@ -205,7 +208,7 @@ public class Golomb extends JPanel {
 				entropy -= propability * (Math.log(propability) / Math.log(2));
 			}
 		}
-		System.out.println();
+
 		return entropy;
 
 	}
@@ -221,7 +224,7 @@ public class Golomb extends JPanel {
 			int g = (argb >> 8) & 0xFF;
 			int b = argb & 0xFF;
 
-			int gray = (r + 2 * g + b) / 3;
+			int gray = (r + 2 * g + b) / 4;
 			if (gray > 255)
 				gray = 255;
 			else if (gray < 0)
