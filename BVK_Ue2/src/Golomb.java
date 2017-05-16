@@ -14,6 +14,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.util.Arrays;
+import java.util.Collections;
 
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
@@ -311,7 +313,7 @@ public class Golomb extends JPanel {
 			return;
 
 		try {
-			DataInputStream in = new DataInputStream(new FileInputStream(file));
+			BitInputStream in = new BitInputStream(new FileInputStream(file));
 			decodeImage(in);
 			in.close();
 		} catch (Exception e) {
@@ -367,8 +369,50 @@ public class Golomb extends JPanel {
 	}
 
 	private void encodeImage(DataOutputStream out) throws IOException {
+
 	}
 
-	private void decodeImage(DataInputStream in) throws IOException {
+	private void decodeImage(BitInputStream in) throws IOException {
+
+		int width = in.read(16);
+		int height = in.read(16);
+		int mode = in.read(8);
+		int m = in.read(8);
+
+		int[] decodedImage = new int[width * height];
+		int b = (int) (Math.ceil(Math.log10(m) / Math.log10(2)));
+		int threshold = ((int) Math.pow(2, b) - m);
+		for (int i = 0; i < decodedImage.length; i++) {
+			System.out.println(i);
+			int q = 0;
+			while (in.read(1) == 1) {
+				q++;
+				// System.out.println("while");
+			}
+			int r = in.read(b - 1);
+			if (r >= threshold) {
+				r = r << 1;
+				int v = in.read(1);
+				r = r | v;
+			}
+			int gray = q * m + r;
+			decodedImage[i] = 0xFF << 24 | gray << 16 | gray << 8 | gray;
+		}
+		golombView.setPixels(decodedImage);
+	}
+
+	private void decodeGolomb(int width, int height, BitInputStream in) {
+
+	}
+
+	private void decodecopy(int width, int height, BitInputStream in) {
+		int[] decodedImage = new int[width * height];
+
+	}
+
+	private void createGeomDistr() {
+
+		Arrays.sort(preProcessedError);
+
 	}
 }

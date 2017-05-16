@@ -19,6 +19,7 @@ public class Test {
 		// System.out.println(Long.toBinaryString(buf));
 		// System.out.println(Integer.toBinaryString((int) buf));
 		System.out.println("1110101110010101010010101111100100100101010101010101010".length()+ " ");
+		System.out.println(Integer.MAX_VALUE);
 		File f = new File("test.bvkdat");
 		try {
 			BitOutputStream bos = new BitOutputStream(new FileOutputStream(f));
