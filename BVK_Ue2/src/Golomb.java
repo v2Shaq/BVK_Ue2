@@ -16,6 +16,8 @@ import java.io.IOException;
 import java.text.NumberFormat;
 
 import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 //import RLE.DialogType;
@@ -35,6 +37,7 @@ public class Golomb extends JPanel {
 	private static JFrame frame;
 	private JLabel sliderLabel;
 	private JSlider slider;
+	private int sliderValue;
 
 	private JLabel origEntropyLabel;
 	private JLabel preProcessedEntropyLabel;
@@ -113,6 +116,15 @@ public class Golomb extends JPanel {
 
 		sliderLabel = new JLabel("M = 1");
 		slider = new JSlider(1, 130, 1);
+		slider.addChangeListener(new ChangeListener() {
+
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				sliderValue = slider.getValue();
+				sliderLabel.setText("M = " + sliderValue);
+
+			}
+		});
 
 		controls.add(loadSrc, c);
 		controls.add(jComboBox, c);
