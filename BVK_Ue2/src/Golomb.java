@@ -16,14 +16,13 @@ import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
 
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
-
-//import RLE.DialogType;
-//import RLE.FileType;
 
 public class Golomb extends JPanel {
 
@@ -39,16 +38,18 @@ public class Golomb extends JPanel {
 	private static JFrame frame;
 	private JLabel sliderLabel;
 	private JSlider slider;
-	private int sliderValue;
 
 	private JLabel origEntropyLabel;
 	private JLabel preProcessedEntropyLabel;
+	private JLabel golombEntropyLabel;
+	private JLabel sizeAndMSELabel;
 
 	private ImageView srcView; // source image view
 	private ImageView preProcessedView; // reconstructed image view
 	private ImageView golombView;
 
 	private int[] preProcessedError;
+	private int mode = 0;
 
 	private enum FileType {
 		NORMAL, GOL
@@ -69,6 +70,8 @@ public class Golomb extends JPanel {
 		srcView = new ImageView();
 		preProcessedView = new ImageView();
 		golombView = new ImageView();
+
+		NumberFormat.getInstance().setMaximumFractionDigits(3);
 
 		JPanel controls = new JPanel(new GridBagLayout());
 		GridBagConstraints c = new GridBagConstraints();
@@ -97,7 +100,7 @@ public class Golomb extends JPanel {
 
 		String[] options = { "Copy", "DPCM" };
 		final JComboBox<String> jComboBox = new JComboBox<>(options);
-		jComboBox.setSelectedIndex(0);
+		jComboBox.setSelectedIndex(mode);
 		jComboBox.addActionListener(new ActionListener() {
 
 			@Override
@@ -106,24 +109,26 @@ public class Golomb extends JPanel {
 				switch (selection) {
 				case "Copy":
 					preProcessedView.setPixels(srcView.getPixels().clone());
+					mode = 0;
 					break;
 				case "DPCM":
 					dcpm();
+					mode = 2;
 				default:
 					break;
 				}
+				updateMLabel(optimalM());
 			}
 
 		});
+		sliderLabel = new JLabel();
 
-		sliderLabel = new JLabel("M = 1");
 		slider = new JSlider(1, 130, 1);
 		slider.addChangeListener(new ChangeListener() {
 
 			@Override
 			public void stateChanged(ChangeEvent e) {
-				sliderValue = slider.getValue();
-				sliderLabel.setText("M = " + sliderValue);
+				sliderLabel.setText("M = " + slider.getValue());
 
 			}
 		});
@@ -143,8 +148,12 @@ public class Golomb extends JPanel {
 		JPanel status = new JPanel(new GridBagLayout());
 		origEntropyLabel = new JLabel(" ");
 		preProcessedEntropyLabel = new JLabel(" ");
+		golombEntropyLabel = new JLabel(" ");
+		sizeAndMSELabel = new JLabel(" ");
 		status.add(origEntropyLabel, c);
 		status.add(preProcessedEntropyLabel, c);
+		status.add(golombEntropyLabel, c);
+		status.add(sizeAndMSELabel, c);
 
 		add(controls, BorderLayout.NORTH);
 		add(images, BorderLayout.CENTER);
@@ -154,11 +163,38 @@ public class Golomb extends JPanel {
 		grayScale(srcView);
 		preProcessedView.setPixels(srcView.getPixels().clone());
 		entropyForAllImageViews();
+		int optimalM = optimalM();
+		updateMLabel(optimalM);
+		slider.setValue(optimalM);
 	}
 
 	private void entropyForAllImageViews() {
-		origEntropyLabel.setText("Entropy: " + entropy(srcView.getPixels()));
+		setOrigEntropyLabel();
 		setPreprocessedLabel();
+		setGolombLabel();
+	}
+
+	private double mse() {
+		int errorSumSquared = 0;
+		int[] origPix = srcView.getPixels();
+		int[] decodedPix = golombView.getPixels();
+		for (int i = 0; i < origPix.length; i++) {
+			int error = origPix[i] - decodedPix[i];
+			errorSumSquared += error * error;
+		}
+
+		return 1.0 / origPix.length * errorSumSquared;
+
+	}
+
+	private void setGolombLabel() {
+		golombEntropyLabel
+				.setText("Entropy right: " + NumberFormat.getInstance().format(entropy(golombView.getPixels())));
+	}
+
+	private void setOrigEntropyLabel() {
+		origEntropyLabel.setText("Entropy left: " + NumberFormat.getInstance().format(entropy(srcView.getPixels())));
+
 	}
 
 	private void dcpm() {
@@ -166,7 +202,9 @@ public class Golomb extends JPanel {
 		int[] processedPixels = new int[srcPixels.length];
 		preProcessedError = new int[srcPixels.length];
 		int init = 128;
-		processedPixels[0] = preProcessedError[0] = srcPixels[0] - init;
+		processedPixels[0] = preProcessedError[0] = srcPixels[0] - init;// fehler
+																		// =
+																		// src-128
 
 		if (processedPixels[0] > 255)
 			processedPixels[0] = 255;
@@ -174,8 +212,8 @@ public class Golomb extends JPanel {
 			processedPixels[0] = 0;
 
 		for (int i = 1; i < processedPixels.length; i++) {
-			int currentPix = (srcPixels[i] >> 16) & 0xFF;
-			int prevPix = (srcPixels[i - 1] >> 16) & 0xFF;
+			int currentPix = srcPixels[i] & 0xFF;
+			int prevPix = srcPixels[i - 1] & 0xFF;
 			int error = currentPix - prevPix;
 			preProcessedError[i] = error;
 			int value = error + init;
@@ -194,18 +232,15 @@ public class Golomb extends JPanel {
 	}
 
 	private void setPreprocessedLabel() {
-		NumberFormat.getInstance().setMaximumFractionDigits(3);
 		preProcessedEntropyLabel
-				.setText("Entropy: " + NumberFormat.getInstance().format(entropy(preProcessedView.getPixels())));
+				.setText("Entropy middle: " + NumberFormat.getInstance().format(entropy(preProcessedView.getPixels())));
 
 	}
 
 	private double entropy(int[] pixels) {
 		int count = 0;
-		int[] histogram = new int[256];
-		for (int i : pixels) {
-			histogram[i & 0xFF]++;
-		}
+		int[] histogram = histogramOfImage(pixels);
+
 		for (int i = 0; i < histogram.length; i++) {
 			count += histogram[i];
 		}
@@ -222,9 +257,31 @@ public class Golomb extends JPanel {
 				entropy -= propability * (Math.log(propability) / Math.log(2));
 			}
 		}
-
 		return entropy;
+	}
 
+	private int[] histogramOfImage(int[] pixels) {
+		int[] histogram = new int[256];
+		for (int i : pixels) {
+			histogram[i & 0xFF]++;
+		}
+		return histogram;
+	}
+
+	private int getAvg(int[] histogram) {
+		int avg = 0;
+		int sum1 = 0;
+		int sum2 = 0;
+		for (int i = 0; i < histogram.length; i++) {
+			sum1 = sum1 + i * histogram[i];
+			sum2 = sum2 + histogram[i];
+		}
+		avg = sum1 / sum2;
+		return (int) avg;
+	}
+
+	private int optimalM() {
+		return (int) ((int) getAvg(histogramOfImage(preProcessedView.getPixels())) * Math.log(2));
 	}
 
 	private void grayScale(ImageView image) {
@@ -333,7 +390,7 @@ public class Golomb extends JPanel {
 			return;
 
 		try {
-			DataOutputStream out = new DataOutputStream(new FileOutputStream(file));
+			BitOutputStream out = new BitOutputStream(new FileOutputStream(file));
 			encodeImage(out);
 			out.close();
 		} catch (Exception e) {
@@ -368,8 +425,51 @@ public class Golomb extends JPanel {
 		});
 	}
 
-	private void encodeImage(DataOutputStream out) throws IOException {
+	private void encodeImage(BitOutputStream out) throws IOException {
 
+		int m = slider.getValue();
+		out.write(preProcessedView.getImgWidth(), Short.SIZE);
+		out.write(preProcessedView.getImgHeight(), Short.SIZE);
+		out.write(mode, 8);
+		out.write(m, 8);
+
+		int b = (int) Math.ceil(Math.log10(m) / Math.log10(2));
+		int threshold = (int) Math.pow(2.0, b) - m;
+
+		if (mode == 0) {
+			for (int i : preProcessedView.pixels) {
+				int gray = i & 0xFF;
+				int q = gray / m;
+				int r = gray - q * m;
+
+				for (int j = q; j > 0; j--) {
+					out.write(1, 1);
+				}
+				out.write(0, 1);
+				if (r < threshold) {
+					out.write(r, b - 1);
+				} else {
+					out.write(r + threshold, b);
+				}
+			}
+
+		} else if (mode == 2) {
+			for (int i : preProcessedError) {
+				int v = (i < 0) ? -(i * 2) - 1 : 2 * i;
+				int q = v / m;
+				int r = v - q * m;
+
+				for (int j = q; j > 0; j--) {
+					out.write(1, 1);
+				}
+				out.write(0, 1);
+				if (r < threshold) {
+					out.write(r, b - 1);
+				} else {
+					out.write(r + threshold, b);
+				}
+			}
+		}
 	}
 
 	private void decodeImage(BitInputStream in) throws IOException {
@@ -379,40 +479,94 @@ public class Golomb extends JPanel {
 		int mode = in.read(8);
 		int m = in.read(8);
 
-		int[] decodedImage = new int[width * height];
+		int[] pix = new int[width * height];
+		if (mode == 0) {
+			decodecopy(pix, m, in);
+		} else if (mode == 2) {
+			decodeGolomb(pix, m, in);
+		}
+		setGolombLabel();
+	}
+
+	private void updateSizeAndMSELabel(int size) {
+		sizeAndMSELabel.setText("Size: " + Math.round(size / 8 / 1024) + "kB " + String.format("MSE = %.1f", mse()));
+	}
+
+	private void decodeGolomb(int[] pix, int m, BitInputStream in) throws IOException {
+
 		int b = (int) (Math.ceil(Math.log10(m) / Math.log10(2)));
 		int threshold = ((int) Math.pow(2, b) - m);
-		for (int i = 0; i < decodedImage.length; i++) {
-			System.out.println(i);
+		int[] error = new int[pix.length];
+		int bits = 0;
+
+		for (int i = 0; i < error.length; i++) {
 			int q = 0;
-			while (in.read(1) == 1) {
+			while (in.read(1) != 0) {
 				q++;
-				// System.out.println("while");
+				bits++;
 			}
+			bits++;
 			int r = in.read(b - 1);
+			bits += b - 1;
 			if (r >= threshold) {
 				r = r << 1;
 				int v = in.read(1);
 				r = r | v;
+				r = r - threshold;
+				bits++;
+			}
+			int val = q * m + r;
+			if (val % 2 == 0) {
+				val = (val / 2);
+			} else {
+				val = -(val + 1) / 2;
+			}
+			error[i] = val;
+		}
+
+		for (int i = 0; i < pix.length; i++) {
+			int gray;
+			if (i == 0) {
+				gray = 128 + error[i];
+				pix[i] = 0xFF << 24 | gray << 16 | gray << 8 | gray;
+				continue;
+			}
+			gray = (pix[i - 1] & 0xFF) + error[i];
+			pix[i] = 0xFF << 24 | gray << 16 | gray << 8 | gray;
+		}
+
+		golombView.setPixels(pix);
+		updateSizeAndMSELabel(bits);
+	}
+
+	private void decodecopy(int[] pix, int m, BitInputStream in) throws IOException {
+		int b = (int) (Math.ceil(Math.log10(m) / Math.log10(2)));
+		int threshold = ((int) Math.pow(2, b) - m);
+		int bits = 0;
+		for (int i = 0; i < pix.length; i++) {
+			int q = 0;
+			while (in.read(1) == 1) {
+				q++;
+				bits++;
+			}
+			bits++;
+			int r = in.read(b - 1);
+			bits += b - 1;
+			if (r >= threshold) {
+				r = r << 1;
+				int v = in.read(1);
+				r = r | v;
+				r = r - threshold;
+				bits++;
 			}
 			int gray = q * m + r;
-			decodedImage[i] = 0xFF << 24 | gray << 16 | gray << 8 | gray;
+			pix[i] = 0xFF << 24 | gray << 16 | gray << 8 | gray;
 		}
-		golombView.setPixels(decodedImage);
+		golombView.setPixels(pix);
+		updateSizeAndMSELabel(bits);
 	}
 
-	private void decodeGolomb(int width, int height, BitInputStream in) {
-
-	}
-
-	private void decodecopy(int width, int height, BitInputStream in) {
-		int[] decodedImage = new int[width * height];
-
-	}
-
-	private void createGeomDistr() {
-
-		Arrays.sort(preProcessedError);
-
+	private void updateMLabel(int value) {
+		sliderLabel.setText("M = " + optimalM());
 	}
 }
