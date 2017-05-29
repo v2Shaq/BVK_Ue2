@@ -227,7 +227,7 @@ public class Arith extends JPanel {
 				numberOfBlackPixels++;
 			}
 		}
-		return ((double)numberOfBlackPixels)/binarisedImage.length;
+		return ((double) numberOfBlackPixels) / binarisedImage.length;
 	}
 
 	private int getAvg(int[] histogram) {
@@ -384,7 +384,58 @@ public class Arith extends JPanel {
 	}
 
 	private void encodeImage(BitOutputStream out) throws IOException {
+		int valueForFileFormat = ((int) getProbability(preProcessedView.getPixels()) & 0x7FFF);
+		out.write(preProcessedView.getImgWidth(), 16);
+		out.write(preProcessedView.getImgHeight(), 16);
 
+		out.write(valueForFileFormat, 16);
+
+		double lowerA, lowerB, upperA, upperB, x0, x1;
+		lowerA = lowerB = x0 = 0.0;
+		upperA = upperB = x1 = 1.0;
+		double bHalfed = upperB / 2;
+
+		for (int pix : preProcessedView.getPixels()) {
+			// aktualisiere lowA,lowB
+			lowerA = 0.0;
+			upperA = 1.0;
+			while (true) {
+				if (lowerA >= 0 && upperA <= 0.5) {
+					upperA *= 2;
+					upperB *= 2;
+				} else if (lowerA >= 0.5 && upperA <= 1.0) {
+					lowerA = 2 * (lowerA - 0.5);
+					upperA = 2 * (upperA - 0.5);
+					lowerB = 2 * (lowerB - 0.5);
+					upperB = 2 * (upperB - 0.5);
+				} else if (lowerA >= 0.25 && upperA <= 0.75) {
+					lowerA = 2 * (lowerA - 0.25);
+					upperA = 2 * (upperA - 0.25);
+					lowerB = 2 * (lowerB - 0.25);
+					upperB = 2 * (upperB - 0.25);
+				} else {
+					break;
+				}
+			}
+
+			while (true) {
+				if (upperA <= upperB && lowerA >= bHalfed) {
+					out.write(1, 1);
+					// aktualisiere B
+					lowerB += bHalfed;
+				} else if (upperA <= bHalfed) {
+					out.write(0, 1);
+					// aktualisiere b
+					upperB -= bHalfed;
+				} else {
+					break;
+				}
+			}
+		}
+
+		if (lowerB >= lowerA && upperB <= upperA) {
+			out.write(1, 1);
+		}
 	}
 
 	private void decodeImage(BitInputStream in) throws IOException {
