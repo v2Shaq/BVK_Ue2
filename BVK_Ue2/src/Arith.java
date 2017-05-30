@@ -384,7 +384,8 @@ public class Arith extends JPanel {
 	}
 
 	private void encodeImage(BitOutputStream out) throws IOException {
-		int valueForFileFormat = ((int) getProbability(preProcessedView.getPixels()) & 0x7FFF);
+		double probability = getProbability(preProcessedView.getPixels());
+		int valueForFileFormat = ((int) probability & 0x7FFF);
 		out.write(preProcessedView.getImgWidth(), 16);
 		out.write(preProcessedView.getImgHeight(), 16);
 
@@ -393,12 +394,19 @@ public class Arith extends JPanel {
 		double lowerA, lowerB, upperA, upperB, x0, x1;
 		lowerA = lowerB = x0 = 0.0;
 		upperA = upperB = x1 = 1.0;
-		double bHalfed = upperB / 2;
 
 		for (int pix : preProcessedView.getPixels()) {
 			// aktualisiere lowA,lowB
-			lowerA = 0.0;
-			upperA = 1.0;
+			// Grenzen checken
+			// lowerA = 0.0;
+			// upperA = 1.0;
+			if (pix == 0) {
+				upperA = upperA * probability;
+			} else {
+				lowerA = probability;
+			}
+
+			// skalierung
 			while (true) {
 				if (lowerA >= 0 && upperA <= 0.5) {
 					upperA *= 2;
@@ -419,6 +427,7 @@ public class Arith extends JPanel {
 			}
 
 			while (true) {
+				double bHalfed = upperB / 2;
 				if (upperA <= upperB && lowerA >= bHalfed) {
 					out.write(1, 1);
 					// aktualisiere B
@@ -433,12 +442,64 @@ public class Arith extends JPanel {
 			}
 		}
 
-		if (lowerB >= lowerA && upperB <= upperA) {
+		double midOfB = upperB / 2;
+		if (midOfB <= upperA && midOfB >= lowerA) {
 			out.write(1, 1);
 		}
 	}
 
 	private void decodeImage(BitInputStream in) throws IOException {
+		final int white = 255;
+		final int black = 0;
+		int width = in.read(16);
+		int height = in.read(16);
+		double p0 = (double) (in.read(16) / 0x7FFF);
+
+		double lowerA, lowerB, upperA, upperB, x0, x1;
+		lowerA = lowerB = x0 = 0.0;
+		upperA = upperB = x1 = 1.0;
+		int index = 0;
+		int[] decoded = new int[width * height];
+		while (index < decoded.length) {
+			while (true) {
+
+				if (lowerB >= lowerA * p0 && upperB >= upperA * p0) {
+					decoded[index] = (0xFF << 24) | (white << 16) | (white << 8) | white;
+					index++;
+					// a aktualisieren
+					break;
+				} else if (lowerB <= upperA && upperB <= upperA) {// ??
+					decoded[index] = (0xFF << 24) | (black << 16) | (black << 8) | black;
+					index++;
+					// a aktualisieren
+					break;
+				}
+
+				int v = in.read(1);
+				// b aktualisiseren
+			}
+
+			// skalierung
+			while (true) {
+				// double bHalfed = upperB / 2;
+				if (lowerA >= 0 && upperA <= 0.5) {
+					upperA *= 2;
+					upperB *= 2;
+				} else if (lowerA >= 0.5 && upperA <= 1.0) {
+					lowerA = 2 * (lowerA - 0.5);
+					upperA = 2 * (upperA - 0.5);
+					lowerB = 2 * (lowerB - 0.5);
+					upperB = 2 * (upperB - 0.5);
+				} else if (lowerA >= 0.25 && upperA <= 0.75) {
+					lowerA = 2 * (lowerA - 0.25);
+					upperA = 2 * (upperA - 0.25);
+					lowerB = 2 * (lowerB - 0.25);
+					upperB = 2 * (upperB - 0.25);
+				} else {
+					break;
+				}
+			}
+		}
 
 	}
 
