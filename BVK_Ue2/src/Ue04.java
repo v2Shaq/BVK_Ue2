@@ -149,16 +149,68 @@ public class Ue04 extends JPanel {
 		grayScale(srcView);
 		// binarisePreProcessedView(slider.getValue());
 		// entropyForAllImageViews();
+		encode();
+		decode();
 	}
 
-	private int[] binarise(int[] srcPix, int threshold) {
-		int[] binarised = new int[srcPix.length];
-		int max = 255;
-		for (int i = 0; i < binarised.length; i++) {
-			binarised[i] = (srcPix[i] & 0xFF) < threshold ? 0 : (0xFF << 24) | (max << 16) | (max << 8) | max;
+	private class Cascade {
+
+		double[] lowLowPass;
+		double[] lowHighPass;
+		double[] highLowPass;
+		double[] highPass;
+
+		int depth;// ?
+
+		public Cascade(int length, int depth) {
+			lowLowPass = lowHighPass = highLowPass = highPass = new double[length / 4];
+			this.depth = depth;
 		}
-		return binarised;
+
+		private void transform(double[] srcPixels) {
+			double[] lowPass, highPass;
+			lowPass = highPass = new double[lowLowPass.length * 2];
+
+			for (int i = 1; i < lowPass.length; i++) {
+				double value = 6 * srcPixels[i * 2] + 2 * srcPixels[i * 2 + 1] + 2 * srcPixels[i * 2 - 1]
+						+ (-1 * srcPixels[i * 2 - 2]) + (-1 * srcPixels[i * 2 + 2]);
+				lowPass[i] = value;
+			}
+
+			// Randbehandlung lp
+			lowPass[0] = 6 * srcPixels[0 * 2] + 2 * (2 * srcPixels[0 * 2 + 1]) + 2 * (-(srcPixels[0 * 2 + 2]));
+			lowPass[lowPass.length - 1] = 6 * srcPixels[srcPixels.length - 2] + 2 * (srcPixels[srcPixels.length - 3])
+					+ 2 * (srcPixels[srcPixels.length - 1]) + 2 * (-(srcPixels[srcPixels.length - 4]));
+
+			for (int i = 0; i < highPass.length-1; i++) {
+				highPass[i] = 2 * srcPixels[i * 2 + 1] - srcPixels[i * 2] - srcPixels[i * 2 + 3];
+			}
+			
+			//Randbehandlung hp 
+			highPass[highPass.length-1] = 2 * srcPixels[highPass.length-1 * 2 + 1] - srcPixels[highPass.length-1 * 2];
+			
+			
+		}
+
 	}
+
+	private void decode() {
+
+	}
+
+	private void encode() {
+
+	}
+
+	// private int[] binarise(int[] srcPix, int threshold) {
+	// int[] binarised = new int[srcPix.length];
+	// int max = 255;
+	// for (int i = 0; i < binarised.length; i++) {
+	// binarised[i] = (srcPix[i] & 0xFF) < threshold ? 0 : (0xFF << 24) | (max
+	// << 16) | (max << 8) | max;
+	// }
+	// return binarised;
+	// }
 
 	private void entropyForAllImageViews() {
 		setOrigEntropyLabel();
@@ -390,7 +442,7 @@ public class Ue04 extends JPanel {
 		sizeAndMSELabel.setText("Size: " + Math.round(size / 8 / 1024) + "kB " + String.format("MSE = %.1f", mse()));
 	}
 
-	private void binarisePreProcessedView(int threshold) {
-		preProcessedView.setPixels(binarise(srcView.getPixels(), threshold));
-	}
+	// private void binarisePreProcessedView(int threshold) {
+	// preProcessedView.setPixels(binarise(srcView.getPixels(), threshold));
+	// }
 }
